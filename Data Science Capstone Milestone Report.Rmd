@@ -1,0 +1,71 @@
+---
+title: "Data Science Capstone Milestone Report"
+author: "Andrey Alferov"
+date: "25 July 2015"
+output: html_document
+---
+
+##Introduction
+The purpose of this report is just to display the results of getting and cleaning data (text files provided by SwiftKey) and initial exploratory analysis. The report also contains the description of further plans to build the prediction model and the app.
+
+##Getting Data
+Load all required libraries
+```{r warning=FALSE, message=FALSE}
+library(tm)
+library(ggplot2)
+library(R.utils)
+library(stringi)
+library(RWeka)
+library(knitr)
+```
+
+Download and unzip source file
+```{r}
+setwd("D:/Coursera/Data Science/Capstone Project") #Path should be replaced by your own when reproducing the analysis
+
+url  <- "http://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+destfile <- "coursera-swiftkey.zip"
+if (!file.exists(destfile)){
+  download.file(url=url, destfile=destfile)
+  filelist=c("final/en_US/en_US.twitter.txt", "final/en_US/en_US.news.txt","final/en_US/en_US.blogs.txt") 
+  unzip(destfile, files=filelist, exdir="en_US", overwrite=TRUE, junkpaths=TRUE)  
+}
+```
+
+Load text files in memory
+```{r warning=FALSE}
+conBlogs <- file("final/en_US/en_US.blogs.txt", 'r')
+conNews <- file("final/en_US/en_US.news.txt", 'r')
+conTwitter <- file("final/en_US/en_US.twitter.txt", 'r')
+textBlogs <- readLines(conBlogs)
+textNews <- readLines(conNews)
+textTwitter <- readLines(conTwitter)
+close(conBlogs)
+close(conNews)
+close(conTwitter)
+```
+
+Calculate basic statistics of the text files
+```{r warning=FALSE, cache=TRUE}
+# get size of files
+fsBlogs <- file.info("final/en_US/en_US.blogs.txt")$size
+fsNews <- file.info("final/en_US/en_US.news.txt")$size
+fsTwitter <- file.info("final/en_US/en_US.twitter.txt")$size
+fileSize <- c(fsBlogs, fsNews, fsTwitter)
+
+# calculate line counts
+lcBlogs <- length(textBlogs)
+lcNews <- length(textNews)
+lcTwitter <- length(textTwitter)
+lineCount <- c(lcBlogs, lcNews, lcTwitter)
+
+# calculate word counts
+wcBlogs <- sum(stri_count_words(textBlogs))
+wcNews <- sum(stri_count_words(textNews))
+wcTwitter <- sum(stri_count_words(textTwitter))
+wordCount <- c(wcBlogs, wcNews, wcTwitter)
+
+info <- data.frame(row.names=c("en_US.blogs.txt", "en_US.news.txt", "en_US.twitter.txt"), FileSize = fileSize, LineCount = lineCount, WordCount = wordCount)
+kable(info, format="markdown")
+```
+

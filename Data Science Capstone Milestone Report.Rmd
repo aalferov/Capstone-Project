@@ -70,7 +70,7 @@ info <- data.frame(row.names=c("en_US.blogs.txt", "en_US.news.txt", "en_US.twitt
 kable(info, format="markdown")
 ```
 
-##Cleaning Data
+##Cleaning and Preprocessing Data
 As a first step lets extract 5000 text lines randomly and use them as a sample distribution to perform the following transformations and analysis in order to reduce processing time.
 ```{r warning=FALSE, cache=TRUE}
 textBlogs <- sample(textBlogs, 5000)
@@ -134,5 +134,32 @@ profanityWords <- readLines(fileName)
 
 # filter them out of the corpus
 textCorpus <- tm_map(textCorpus, removeWords, profanityWords)
+```
+
+## Exploratory Analysis
+In the fields of computational linguistics and probability, an n-gram is a contiguous sequence of n items from a given sequence of text or speech. The items can be phonemes, syllables, letters, words or base pairs according to the application. The n-grams typically are collected from a text or speech corpus.
+
+Only unigrams, bigrams and trigrams will be analized in order to make analysis not too complex and in respect of resources limits.
+
+```{r warning=FALSE, cache=TRUE}
+tokenizer <- function (text, gramsCount)
+{
+    if (gramsCount == 1)
+        NGramTokenizer(text, Weka_control(min = gramsCount, max = gramsCount))
+    else if (gramsCount == 2)
+        NGramTokenizer(textCorpus, Weka_control(min = gramsCount, max = gramsCount, delimiters =  "\\r\\n\\t.,;:\"()?!"))
+    else if (gramsCount == 3)
+        NGramTokenizer(textCorpus, Weka_control(min = gramsCount, max = gramsCount, delimiters = "\\r\\n\\t.,;:\"()?!"))
+    else
+        print("Invalid input parameter")
+}
+
+#uniGram <- tokenizer(textCorpus, 1)
+#biGram <- tokenizer(textCorpus, 2)
+#triGram <- tokenizer(textCorpus, 3)
+
+dtmUnigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=tokenizer(1)))
+dtmBigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=tokenizer(2)))
+dtmTrigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=tokenizer(3)))
 ```
 

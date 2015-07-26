@@ -1,7 +1,7 @@
 ---
 title: "Data Science Capstone Milestone Report"
 author: "Andrey Alferov"
-date: "25 July 2015"
+date: "26 July 2015"
 output: html_document
 ---
 
@@ -9,7 +9,7 @@ output: html_document
 The purpose of this report is just to display the results of getting and cleaning data (text files provided by SwiftKey) and initial exploratory analysis. The report also contains the description of further plans to build the prediction model and the app.
 
 ##Getting Data
-Load all required libraries
+Load all required libraries.
 ```{r warning=FALSE, message=FALSE}
 library(tm)
 library(ggplot2)
@@ -17,22 +17,23 @@ library(R.utils)
 library(stringi)
 library(RWeka)
 library(knitr)
+library(qdapRegex)
 ```
 
-Download and unzip source file
+Download and unzip source file.
 ```{r}
 setwd("D:/Coursera/Data Science/Capstone Project") #Path should be replaced by your own when reproducing the analysis
 
 url  <- "http://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
-destfile <- "coursera-swiftkey.zip"
-if (!file.exists(destfile)){
-  download.file(url=url, destfile=destfile)
+fileName <- "coursera-swiftkey.zip"
+if (!file.exists(fileName)){
+  download.file(url = url, destfile = fileName)
   filelist=c("final/en_US/en_US.twitter.txt", "final/en_US/en_US.news.txt","final/en_US/en_US.blogs.txt") 
-  unzip(destfile, files=filelist, exdir="en_US", overwrite=TRUE, junkpaths=TRUE)  
+  unzip(fileName, files = filelist, exdir = "en_US", overwrite = TRUE, junkpaths = TRUE)  
 }
 ```
 
-Load text files in memory
+Load text files in memory.
 ```{r warning=FALSE}
 conBlogs <- file("final/en_US/en_US.blogs.txt", 'r')
 conNews <- file("final/en_US/en_US.news.txt", 'r')
@@ -45,7 +46,7 @@ close(conNews)
 close(conTwitter)
 ```
 
-Calculate basic statistics of the text files
+Calculate basic statistics of the text files.
 ```{r warning=FALSE, cache=TRUE}
 # get size of files
 fsBlogs <- file.info("final/en_US/en_US.blogs.txt")$size
@@ -67,5 +68,71 @@ wordCount <- c(wcBlogs, wcNews, wcTwitter)
 
 info <- data.frame(row.names=c("en_US.blogs.txt", "en_US.news.txt", "en_US.twitter.txt"), FileSize = fileSize, LineCount = lineCount, WordCount = wordCount)
 kable(info, format="markdown")
+```
+
+##Cleaning Data
+As a first step lets extract 5000 text lines randomly and use them as a sample distribution to perform the following transformations and analysis in order to reduce processing time.
+```{r warning=FALSE, cache=TRUE}
+textBlogs <- sample(textBlogs, 5000)
+textNews <- sample(textNews, 5000)
+textTwitter <- sample(textTwitter, 5000)
+```
+
+As a second step lets remove all weird characters from the sampled texts and combine them into a single text object.
+```{r warning=FALSE, cache=TRUE}
+# convert to "ASCII" encoding to remove weird characters
+textBlogs <- iconv(textBlogs, to="ASCII", sub="")
+textNews <- iconv(textNews, to="ASCII", sub="")
+textTwitter <- iconv(textTwitter, to="ASCII", sub="")
+
+# combine text arrays into a single one 
+textUnited <- paste(textBlogs, textNews, textTwitter)
+```
+
+As a third step lets do the following transformations to clean the united text array:
+*Remove twitter retweets 
+*Remove @people tags, 
+*Remove URLs, 
+*Remove emoticons and hash tags
+```{r warning=FALSE, cache=TRUE}
+textUnited = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", textUnited)
+textUnited = gsub("@\\w+", "", textUnited)
+textUnited = gsub("http\\w+", "", textUnited)
+textUnited <- rm_emoticon(textUnited)
+textUnited <- rm_hash(textUnited)
+textUnited <- rm_url(textUnited)
+```
+
+As a fourth step lets convert sampled text data into the corpus of structured text, suitable for permofring statistical analysis.
+```{r warning=FALSE, cache=TRUE}
+textCorpus <- Corpus(VectorSource(textUnited))
+```
+
+As a fifth step lets do the following transformations to clean the corpus:
+*Convert to lower case
+*Remove punctuation
+*Remove numbers
+*Strip white spaces
+```{r warning=FALSE, cache=TRUE}
+textCorpus <- tm_map(textCorpus, stripWhitespace)
+textCorpus <- tm_map(textCorpus, removeNumbers)
+textCorpus <- tm_map(textCorpus, removePunctuation)
+textCorpus <- tm_map(textCorpus, PlainTextDocument)
+textCorpus <- tm_map(textCorpus, content_transformer(tolower))
+```
+
+As a sixth step lets filter out profanity words from the corpus as we don't want to predict them.
+```{r warning=FALSE, cache=TRUE}
+# download the list of profanity words
+url <- "https://raw.githubusercontent.com/shutterstock/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en"
+fileName <- "profanity.txt"
+
+if (!file.exists(fileName))
+    download.file(url, destfile=fileName)
+
+profanityWords <- readLines(fileName)
+
+# filter them out of the corpus
+textCorpus <- tm_map(textCorpus, removeWords, profanityWords)
 ```
 

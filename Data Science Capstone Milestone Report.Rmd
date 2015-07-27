@@ -71,11 +71,11 @@ kable(info, format="markdown")
 ```
 
 ##Cleaning and Preprocessing Data
-As a first step lets extract 5000 text lines randomly and use them as a sample distribution to perform the following transformations and analysis in order to reduce processing time.
+As a first step lets extract 1000 text lines randomly and use them as a sample distribution to perform the following transformations and analysis in order to reduce processing time.
 ```{r warning=FALSE, cache=TRUE}
-textBlogs <- sample(textBlogs, 5000)
-textNews <- sample(textNews, 5000)
-textTwitter <- sample(textTwitter, 5000)
+textBlogs <- sample(textBlogs, 1000)
+textNews <- sample(textNews, 1000)
+textTwitter <- sample(textTwitter, 1000)
 ```
 
 As a second step lets remove all weird characters from the sampled texts and combine them into a single text object.
@@ -142,24 +142,52 @@ In the fields of computational linguistics and probability, an n-gram is a conti
 Only unigrams, bigrams and trigrams will be analized in order to make analysis not too complex and in respect of resources limits.
 
 ```{r warning=FALSE, cache=TRUE}
-tokenizer <- function (text, gramsCount)
+unigramTokenizer <- function (text)
 {
-    if (gramsCount == 1)
-        NGramTokenizer(text, Weka_control(min = gramsCount, max = gramsCount))
-    else if (gramsCount == 2)
-        NGramTokenizer(textCorpus, Weka_control(min = gramsCount, max = gramsCount, delimiters =  "\\r\\n\\t.,;:\"()?!"))
-    else if (gramsCount == 3)
-        NGramTokenizer(textCorpus, Weka_control(min = gramsCount, max = gramsCount, delimiters = "\\r\\n\\t.,;:\"()?!"))
-    else
-        print("Invalid input parameter")
+  NGramTokenizer(text, Weka_control(min = 1, max = 1))
 }
 
-#uniGram <- tokenizer(textCorpus, 1)
-#biGram <- tokenizer(textCorpus, 2)
-#triGram <- tokenizer(textCorpus, 3)
+bigramTokenizer <- function (text)
+{
+  NGramTokenizer(text, Weka_control(min = 2, max = 2))
+}
 
-dtmUnigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=tokenizer(1)))
-dtmBigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=tokenizer(2)))
-dtmTrigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=tokenizer(3)))
+trigramTokenizer <- function (text)
+{
+  NGramTokenizer(text, Weka_control(min = 3, max = 3))
+}
+
+#Build document-term matrices based on unigram, bigram and trigram tokenizer, e.g. matricies containing frequencies of one, two, free grams appearance in the text corpus
+dtmUnigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=unigramTokenizer))
+dtmBigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=bigramTokenizer))
+dtmTrigram <- DocumentTermMatrix(textCorpus, control=list(tokenize=trigramTokenizer))
 ```
 
+Convert the document-term matrices to normal matrices, sum up all the terms (words) and sort them.
+
+```{r warning=FALSE, cache=TRUE}
+unigramFrequency  <- sort(colSums(as.matrix(dtmUnigram)), decreasing=TRUE)
+dfUnigram <- data.frame(word=names(unigramFrequency), freq=unigramFrequency, stringsAsFactors = FALSE)
+
+bigramFrequency <- sort(colSums(as.matrix(dtmBigram)), decreasing=TRUE)
+dfBigram <- data.frame(word=names(bigramFrequency), freq=bigramFrequency, stringsAsFactors = FALSE)
+
+trigramFrequency <- sort(colSums(as.matrix(dtmTrigram)), decreasing=TRUE)
+dfTrigram <- data.frame(word=names(trigramFrequency), freq=trigramFrequency, stringsAsFactors = FALSE)
+```
+
+Show the frequinces distribution for top 20 most frequent unigrams, bigrams and trigrams.
+
+```{r warning=FALSE}
+barplot(unigramFrequency[1:20], ylab='frequency', main='top 20 most frequent unigrams', names.arg=names(unigramFrequency)[1:20],        
+        col="red", las=2, cex.names=.7)
+
+barplot(bigramFrequency[1:20], ylab='frequency', main='top 20 most frequent bigrams', names.arg=names(bigramFrequency)[1:20],        
+        col="green", las=2, cex.names=.7)
+
+barplot(trigramFrequency[1:20], ylab='frequency', main='top 20 most frequent trigrams', names.arg=names(trigramFrequency)[1:20],        
+        col="blue", las=2, cex.names=.7)
+```
+
+## Further steps
+In order to imporove the accuracy, I’m going to do following works: In the next couple of weeks, I will build an algorithm to predict the next work, based on the n-gram models. The algorithm involves building a lookup table for each n-gram, and use it to predict the next word in a sentence. The algorithm will search in the 4-gram model, then the 3-gram, and then in the 2-gram. If there is no match, then we need to come up with the best guess. The algorithm will assume that the whole English language is covered in the corpa (very optimistic). The algorithm has to be fast in searching and predicting a word. A shiny app will be built to demonstrate the algorithm to predict a word after an input phrase.
